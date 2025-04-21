@@ -12,19 +12,37 @@ const getRainbowColor = (offset: number) => {
   return new THREE.Color().setHSL(wave, 1, 0.5);
 };
 
+// Pre-initialize materials outside component to ensure they exist immediately
+const rgbMaterialsArray = Array.from({ length: 2 }, () => 
+  new THREE.MeshStandardMaterial({
+    metalness: 0.3,
+    roughness: 0.5,
+    emissive: new THREE.Color(0x000000),
+    emissiveIntensity: 0.5
+  })
+);
+
+// Initialize with starting colors
+(() => {
+  rgbMaterialsArray.forEach((material, i) => {
+    const color = getRainbowColor(i * 0.5);
+    material.color = color;
+    material.emissive = color;
+  });
+})();
+
 export const Mouse: React.FC<MouseProps> = ({ scale = 1, ...props }) => {
   const group = useRef<THREE.Group>(null);
-  const rgbMaterials = useRef<THREE.MeshStandardMaterial[]>([]);
+  const rgbMaterials = useRef<THREE.MeshStandardMaterial[]>(rgbMaterialsArray);
 
+  // Initialize colors immediately
   useEffect(() => {
-    rgbMaterials.current = Array.from({ length: 2 }, () => 
-      new THREE.MeshStandardMaterial({
-        metalness: 0.3,
-        roughness: 0.5,
-        emissive: new THREE.Color(0x000000),
-        emissiveIntensity: 0.5
-      })
-    );
+    // Force immediate update of all materials
+    rgbMaterials.current.forEach((material, i) => {
+      const color = getRainbowColor(i * 0.5);
+      material.color = color;
+      material.emissive = color;
+    });
   }, []);
 
   useFrame(() => {
@@ -85,12 +103,6 @@ export const Mouse: React.FC<MouseProps> = ({ scale = 1, ...props }) => {
       <mesh castShadow position={[0, 0.42, -0.4]} rotation={[Math.PI / 2, 0, 0]}>
         <cylinderGeometry args={[0.07, 0.07, 0.25, 12]} />
         <meshStandardMaterial color="#444444" />
-      </mesh>
-      
-      {/* Mouse Cable */}
-      <mesh position={[0, 0.35, 0.8]} rotation={[0, 0, 0]}>
-        <cylinderGeometry args={[0.04, 0.04, 0.5, 8]} />
-        <meshStandardMaterial color="#222222" />
       </mesh>
     </group>
   );

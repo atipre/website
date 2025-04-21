@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState, useMemo } from 'react';
 import { GroupProps, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 
@@ -13,19 +13,49 @@ const getRainbowColor = (offset: number) => {
   return new THREE.Color().setHSL(hue, 1, 0.5);
 };
 
+// Pre-initialize materials outside component to ensure they exist immediately
+const rgbMaterialsArray = Array.from({ length: 300 }, () => 
+  new THREE.MeshStandardMaterial({
+    metalness: 0.3,
+    roughness: 0.5
+  })
+);
+
 export const Keyboard: React.FC<KeyboardProps> = ({ scale = 1, ...props }) => {
   const group = useRef<THREE.Group>(null);
-  const rgbMaterials = useRef<THREE.MeshStandardMaterial[]>([]);
-
+  const rgbMaterials = useRef<THREE.MeshStandardMaterial[]>(rgbMaterialsArray);
+  
+  // Initialize colors immediately
   useEffect(() => {
-    rgbMaterials.current = Array.from({ length: 300 }, () => 
-      new THREE.MeshStandardMaterial({
-        metalness: 0.3,
-        roughness: 0.5
+    // Force immediate update of all materials
+    rgbMaterials.current.forEach((material, i) => {
+      const row = Math.floor(i / 30);
+      const col = i % 30;
+      const distance = Math.sqrt(Math.pow(col - 15, 2) + Math.pow(row - 5, 2)) * 0.2;
+      const color = getRainbowColor(distance);
+      material.color = color;
+    });
+  }, []);
+
+  // Pre-generate key geometry
+  const keyGeometry = useMemo(() => new THREE.BoxGeometry(0.09, 0.04, 0.09), []);
+  
+  // Create keys only once
+  const keys = useMemo(() => {
+    return Array.from({ length: 10 }).flatMap((_, row) =>
+      Array.from({ length: 30 }).map((_, col) => {
+        const position = [
+          -1.8 + col * 0.12, 
+          0.13, 
+          -0.6 + row * 0.12
+        ] as [number, number, number];
+        
+        return { position, index: row * 30 + col };
       })
     );
   }, []);
 
+  // Update the colors every frame
   useFrame(() => {
     rgbMaterials.current.forEach((material, i) => {
       const row = Math.floor(i / 30);
@@ -56,24 +86,19 @@ export const Keyboard: React.FC<KeyboardProps> = ({ scale = 1, ...props }) => {
       </mesh>
       
       {/* Generate Keys */}
-      {Array.from({ length: 10 }).map((_, row) => (
-        Array.from({ length: 30 }).map((_, col) => (
-          <mesh
-            key={`key-${row}-${col}`} 
-            position={[
-              -1.8 + col * 0.12, 
-              0.13, 
-              -0.6 + row * 0.12
-            ]} 
-            castShadow>
-            <boxGeometry args={[0.09, 0.04, 0.09]} />
-            <meshStandardMaterial ref={(material) => {
-              if (material) {
-                rgbMaterials.current[row * 30 + col] = material;
-              }
-            }} />
-          </mesh>
-        ))
+      {keys.map(({ position, index }) => (
+        <mesh
+          key={`key-${index}`} 
+          position={position} 
+          castShadow
+          geometry={keyGeometry}
+        >
+          <meshStandardMaterial ref={(material) => {
+            if (material) {
+              rgbMaterials.current[index] = material;
+            }
+          }} />
+        </mesh>
       ))}
       
       {/* Status LEDs */}
